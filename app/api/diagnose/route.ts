@@ -332,3 +332,60 @@ function safeJSON(text: string) {
     }
   }
 }
+export async function POST(req: Request) {
+  const { symptom } = await req.json();
+  if (!symptom) {
+    return NextResponse.json({ error: "empty symptom" }, { status: 400 });
+  }
+
+  const history = getMemory();
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Отвечай ТОЛЬКО JSON без текста. Поля: type,message,diagnosis,probability,explanation,lesson,what_to_do,service_recommendation",
+        },
+        {
+          role: "user",
+          content: `История:${JSON.stringify(history)} Симптом:${symptom}`,
+        },
+      ],
+      temperature: 0.3,
+    }),
+  });
+
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content || "";
+
+  const parsed = safeJSON(text) || {
+    type: "diagnosis",
+    message: "no data",
+    diagnosis: "unknown",
+    probability: "0%",
+    explanation: "",
+    lesson: "",
+    what_to_do: "",
+    service_recommendation: "",
+  };
+
+  addMemory({
+    symptom,
+    diagnosis: parsed.diagnosis,
+    time: Date.now(),
+  });
+
+  return NextResponse.json({
+    symptom,
+    ...parsed,
+    memory_size: history.length + 1,
+  });
+}
