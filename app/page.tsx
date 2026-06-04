@@ -10,11 +10,24 @@ const examples = [
   "гудит колесо на скорости",
 ];
 
-function riskColor(level: string) {
-  if (level === "no") return "text-green-400";
-  if (level === "risky") return "text-yellow-400";
-  if (level === "no_safe" || level === "yes") return "text-red-400";
+function riskColor(v: string) {
+  if (v === "low") return "text-green-400";
+  if (v === "medium") return "text-yellow-400";
+  if (v === "high") return "text-red-400";
   return "text-zinc-400";
+}
+
+function urgencyColor(v: string) {
+  if (v === "now") return "text-red-400";
+  if (v === "soon") return "text-yellow-400";
+  return "text-green-400";
+}
+
+function toneLabel(v: string) {
+  if (v === "calm") return "Спокойно";
+  if (v === "warning") return "Настороженно";
+  if (v === "critical") return "Срочно";
+  return "";
 }
 
 export default function Home() {
@@ -33,8 +46,7 @@ export default function Home() {
       body: JSON.stringify({ symptom: value }),
     });
 
-    const json = await res.json();
-    setData(json);
+    setData(await res.json());
     setLoading(false);
   }
 
@@ -43,7 +55,7 @@ export default function Home() {
       <div className="w-full max-w-xl space-y-4">
 
         <div className="text-xl font-semibold">
-          Джек — объясняет машину простым языком
+          Джек — объясняет автомобиль простым языком
         </div>
 
         <input
@@ -73,36 +85,73 @@ export default function Home() {
         </div>
 
         {data && (
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800">
+          <div className="space-y-4 p-4 rounded-xl bg-zinc-900 border border-zinc-800">
 
-            {/* ДИАГНОЗ */}
             <div className="text-lg font-semibold">
               {data.diagnosis}
             </div>
 
-            {/* ОБЪЯСНЕНИЕ */}
             <div className="text-sm text-zinc-300 leading-relaxed">
               {data.explanation}
             </div>
 
-            {/* ПОЧЕМУ СЛУЧИЛОСЬ */}
+            {/* УРОВЕНЬ СОМНЕНИЯ */}
             <div className="text-sm text-zinc-400">
-              <b>Почему:</b> {data.why_it_happened}
+              Уверенность: {data.confidence_level}
+            </div>
+
+            {/* ПРИЧИНЫ */}
+            <div className="text-sm text-zinc-300">
+              <b>Причина:</b> {data.why_it_happened}
+            </div>
+
+            {/* АЛЬТЕРНАТИВЫ */}
+            <div className="text-sm text-zinc-300">
+              <b>Также возможно:</b> {data.alternatives}
             </div>
 
             {/* РИСК */}
-            <div className={`text-sm font-semibold ${riskColor(data.can_drive)}`}>
+            <div className={`text-sm font-semibold ${riskColor(data.risk_level)}`}>
               Риск: {data.risk}
             </div>
 
-            {/* МОЖНО ЛИ ЕХАТЬ */}
-            <div className="text-sm">
-              Можно ехать: <b>{data.can_drive}</b>
+            {/* СРОЧНОСТЬ */}
+            <div className={`text-sm font-semibold ${urgencyColor(data.urgency)}`}>
+              Срочность: {data.urgency}
             </div>
 
-            {/* ЧТО ДЕЛАТЬ */}
+            {/* ЭКОНОМИКА */}
+            <div className="text-sm text-zinc-300">
+              💸 Цена ремонта: {data.cost_range}
+            </div>
+
+            <div className="text-sm text-red-300">
+              💥 Если игнорировать: {data.if_ignore_cost}
+            </div>
+
+            {/* ДЕЙСТВИЕ */}
             <div className="text-sm text-zinc-300">
               {data.what_to_do}
+            </div>
+
+            {/* САМОПРОВЕРКА */}
+            <div className="text-sm text-zinc-400">
+              🔎 Самопроверка: {data.self_check}
+            </div>
+
+            {/* СТО ФРАЗА */}
+            <div className="text-sm text-zinc-300">
+              🧾 СТО: "{data.mechanic_phrase}"
+            </div>
+
+            {/* ТОН */}
+            <div className={`text-sm font-semibold ${riskColor(data.tone)}`}>
+              Ситуация: {toneLabel(data.tone)}
+            </div>
+
+            {/* МИКРО-УРОК */}
+            <div className="text-xs text-zinc-500">
+              📚 {data.micro_lesson}
             </div>
 
           </div>
