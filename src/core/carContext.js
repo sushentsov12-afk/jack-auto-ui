@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react";
 
-const CarContext = createContext(null);
+const CarContext = createContext();
 
 export function CarProvider({ children }) {
   const [activeCar, setActiveCar] = useState(null);
@@ -13,7 +13,5 @@ export function CarProvider({ children }) {
 }
 
 export function useCar() {
-  const ctx = useContext(CarContext);
-  if (!ctx) throw new Error("CarProvider missing");
-  return ctx;
+  return useContext(CarContext);
 }
