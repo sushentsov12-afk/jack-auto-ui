@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { searchParts } from "@/lib/partsSearch";
 
 export async function POST(req: Request) {
-  const { query } = await req.json();
+  const { query, car } = await req.json();
 
   if (!query) {
     return NextResponse.json({ error: "empty query" }, { status: 400 });
@@ -13,11 +13,13 @@ export async function POST(req: Request) {
   if (results.length === 0) {
     return NextResponse.json({
       type: "not_found",
-      message: "Не найдено. Уточните описание детали",
+      message: "Не нашёл точного совпадения. Уточните описание детали",
       questions: [
         "Где находится деталь?",
-        "Что именно происходит?",
+        "Что именно она делает?",
+        "Когда проявляется проблема?",
       ],
+      car_considered: !!car,
     });
   }
 
@@ -28,5 +30,6 @@ export async function POST(req: Request) {
       article: r.article,
       system: r.system,
     })),
+    car_considered: !!car,
   });
 }
