@@ -4,11 +4,18 @@ import { useState } from "react";
 
 const examples = [
   "стучит подвеска на кочках",
-  "горит чек",
+  "горит чек и машина троит",
   "скрип при торможении",
-  "не заводится утром",
-  "гудит колесо",
+  "машина не заводится утром",
+  "гудит колесо на скорости",
 ];
+
+function riskColor(level: string) {
+  if (level === "no") return "text-green-400";
+  if (level === "risky") return "text-yellow-400";
+  if (level === "no_safe" || level === "yes") return "text-red-400";
+  return "text-zinc-400";
+}
 
 export default function Home() {
   const [symptom, setSymptom] = useState("");
@@ -18,6 +25,7 @@ export default function Home() {
   async function send(text?: string) {
     const value = text || symptom;
     setLoading(true);
+    setData(null);
 
     const res = await fetch("/api/diagnose", {
       method: "POST",
@@ -25,38 +33,82 @@ export default function Home() {
       body: JSON.stringify({ symptom: value }),
     });
 
-    setData(await res.json());
+    const json = await res.json();
+    setData(json);
     setLoading(false);
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 max-w-xl mx-auto">
-      <input
-        className="w-full p-4 bg-zinc-900"
-        value={symptom}
-        onChange={(e) => setSymptom(e.target.value)}
-      />
+    <div className="min-h-screen bg-zinc-950 text-white flex justify-center p-4">
+      <div className="w-full max-w-xl space-y-4">
 
-      <button onClick={() => send()}>
-        {loading ? "Анализ..." : "Спросить"}
-      </button>
-
-      <div className="flex gap-2 flex-wrap">
-        {examples.map((e) => (
-          <button key={e} onClick={() => send(e)}>
-            {e}
-          </button>
-        ))}
-      </div>
-
-      {data && (
-        <div>
-          <h2>{data.diagnosis}</h2>
-          <p>{data.explanation}</p>
-          <p>{data.risk}</p>
-          <p>{data.can_drive}</p>
+        <div className="text-xl font-semibold">
+          Джек — объясняет машину простым языком
         </div>
-      )}
+
+        <input
+          value={symptom}
+          onChange={(e) => setSymptom(e.target.value)}
+          placeholder="Опиши проблему..."
+          className="w-full p-4 rounded-xl bg-zinc-900 border border-zinc-800"
+        />
+
+        <button
+          onClick={() => send()}
+          className="w-full p-4 rounded-xl bg-white text-black font-semibold"
+        >
+          {loading ? "Анализ..." : "Спросить Джека"}
+        </button>
+
+        <div className="flex flex-wrap gap-2">
+          {examples.map((e) => (
+            <button
+              key={e}
+              onClick={() => send(e)}
+              className="text-xs px-3 py-2 rounded-full bg-zinc-800 border border-zinc-700"
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+
+        {data && (
+          <div className="space-y-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800">
+
+            {/* ДИАГНОЗ */}
+            <div className="text-lg font-semibold">
+              {data.diagnosis}
+            </div>
+
+            {/* ОБЪЯСНЕНИЕ */}
+            <div className="text-sm text-zinc-300 leading-relaxed">
+              {data.explanation}
+            </div>
+
+            {/* ПОЧЕМУ СЛУЧИЛОСЬ */}
+            <div className="text-sm text-zinc-400">
+              <b>Почему:</b> {data.why_it_happened}
+            </div>
+
+            {/* РИСК */}
+            <div className={`text-sm font-semibold ${riskColor(data.can_drive)}`}>
+              Риск: {data.risk}
+            </div>
+
+            {/* МОЖНО ЛИ ЕХАТЬ */}
+            <div className="text-sm">
+              Можно ехать: <b>{data.can_drive}</b>
+            </div>
+
+            {/* ЧТО ДЕЛАТЬ */}
+            <div className="text-sm text-zinc-300">
+              {data.what_to_do}
+            </div>
+
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
