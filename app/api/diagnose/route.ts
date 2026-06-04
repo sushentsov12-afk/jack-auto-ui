@@ -16,8 +16,20 @@ function safeJSON(text: string) {
 }
 
 export async function POST(req: Request) {
-  const { symptom } = await req.json();
-  if (!symptom) return NextResponse.json({ error: "empty symptom" }, { status: 400 });
+  const {
+    symptom,
+    car = {
+      make: "",
+      model: "",
+      year: "",
+      mileage: "",
+      engine: "",
+    },
+  } = await req.json();
+
+  if (!symptom) {
+    return NextResponse.json({ error: "empty symptom" }, { status: 400 });
+  }
 
   const history = getMemory();
 
@@ -38,23 +50,24 @@ export async function POST(req: Request) {
         {
           role: "system",
           content: `
-Ты — профессиональный авто-диагност уровня СТО + инженер.
+Ты авто-диагност уровня СТО.
 
-Работаешь как ДЕРЕВО РЕШЕНИЙ:
+РАБОТА:
+1) анализ симптома + истории + автомобиля
+2) если мало данных → вопросы
+3) если достаточно → диагноз
 
-1) Если данных недостаточно:
-- задаёшь 1–3 точных уточняющих вопроса
-- НЕ даёшь диагноз
+ОБЯЗАТЕЛЬНО УЧИТЫВАЙ:
+- тип авто
+- возраст
+- пробег
 
-2) Если данных достаточно:
-- даёшь финальный диагноз
-- разбиваешь причину на ветки (engine / electrical / fuel / cooling / transmission)
-- указываешь вероятности
-
-ФОРМАТ СТРОГО JSON:
+ФОРМАТ JSON:
 
 {
 "type": "question" | "diagnosis",
+
+"car_context_used": true,
 
 "message": "",
 "questions": [],
@@ -67,13 +80,25 @@ export async function POST(req: Request) {
   }
 ],
 
+"system_confidence": {
+  "engine": 0-100,
+  "electrical": 0-100,
+  "fuel": 0-100,
+  "cooling": 0-100,
+  "transmission": 0-100
+},
+
 "diagnosis": "",
 "probability": "",
 "explanation": "",
 "lesson": "",
 "what_to_do": "",
+
 "can_drive": "yes|no|risky",
+"driving_warning_reason": "",
+
 "urgency": "low|medium|high|critical",
+
 "service_recommendation": ""
 }
 `.trim(),
@@ -81,10 +106,13 @@ export async function POST(req: Request) {
         {
           role: "user",
           content: `
-ИСТОРИЯ:
+CAR:
+${JSON.stringify(car)}
+
+HISTORY:
 ${JSON.stringify(history)}
 
-СИМПТОМ:
+SYMPTOM:
 ${symptom}
 `.trim(),
         },
@@ -99,15 +127,24 @@ ${symptom}
 
   const parsed = safeJSON(text) || {
     type: "question",
+    car_context_used: false,
     message: "Недостаточно данных",
-    questions: ["Опишите звук", "Когда проявляется проблема"],
+    questions: ["Опишите проблему подробнее"],
     branches: [],
+    system_confidence: {
+      engine: 0,
+      electrical: 0,
+      fuel: 0,
+      cooling: 0,
+      transmission: 0,
+    },
     diagnosis: "",
     probability: "0%",
     explanation: "",
     lesson: "",
     what_to_do: "",
     can_drive: "risky",
+    driving_warning_reason: "Недостаточно данных",
     urgency: "medium",
     service_recommendation: "",
   };
@@ -120,6 +157,7 @@ ${symptom}
 
   return NextResponse.json({
     symptom,
+    car,
     ...parsed,
     memory_size: getMemory().length,
   });
