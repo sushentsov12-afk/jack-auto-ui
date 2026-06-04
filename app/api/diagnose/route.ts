@@ -53,6 +53,10 @@ export async function POST(req: Request) {
 - без сложных терминов
 - без запугивания
 - честно и понятно
+ВАЖНО:
+- объяснение должно быть как для человека без знаний авто
+- если используешь термин — объясни его в скобках
+- текст простой и короткий
 
 ФОРМАТ JSON:
 {
@@ -106,10 +110,16 @@ ${symptom}
     time: Date.now(),
   });
 
-  return NextResponse.json({
-    symptom,
-    car,
-    ...parsed,
-    memory_size: getMemory().length,
-  });
-}
+return NextResponse.json({
+  symptom,
+  car,
+  diagnosis: parsed.diagnosis,
+  explanation: parsed.explanation,
+  why_it_happened: parsed.why_it_happened,
+  risk: parsed.risk,
+  what_to_do: parsed.what_to_do,
+  can_drive: parsed.can_drive,
+  questions: parsed.questions,
+  message: parsed.message,
+  memory_size: getMemory().length,
+});
