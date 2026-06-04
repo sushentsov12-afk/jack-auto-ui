@@ -5,12 +5,8 @@ function safeJSON(text: string) {
   try {
     return JSON.parse(text);
   } catch {
-    const cleaned = text
-      .replace(/```json|```/g, "")
-      .match(/\{[\s\S]*\}/);
-
+    const cleaned = text.replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
     if (!cleaned) return null;
-
     try {
       return JSON.parse(cleaned[0]);
     } catch {
@@ -21,53 +17,69 @@ function safeJSON(text: string) {
 
 export async function POST(req: Request) {
   const { symptom } = await req.json();
-
-  if (!symptom) {
-    return NextResponse.json({ error: "empty symptom" }, { status: 400 });
-  }
+  if (!symptom) return NextResponse.json({ error: "empty symptom" }, { status: 400 });
 
   const history = getMemory();
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
 
-  let res;
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      messages: [
+        {
+          role: "system",
+          content: `
+Ты авто-механик.
 
-  try {
-    res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Ты авто-механик. Отвечай ТОЛЬКО JSON: type, message, diagnosis, probability, explanation, lesson, what_to_do, service_recommendation",
-          },
-          {
-            role: "user",
-            content: `История:${JSON.stringify(history)} Симптом:${symptom}`,
-          },
-        ],
-        temperature: 0.3,
-      }),
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+Работаешь как ДЕРЕВО ДИАГНОСТИКИ:
+
+ШАГ 1:
+если данных недостаточно → задай 1–3 уточняющих вопроса
+
+ШАГ 2:
+если данных достаточно → выдай диагноз
+
+ФОРМАТ СТРОГО JSON:
+{
+"type": "question" | "diagnosis",
+"message": "",
+"questions": [],
+"diagnosis": "",
+"probability": "",
+"explanation": "",
+"lesson": "",
+"what_to_do": "",
+"service_recommendation": ""
+}
+`.trim(),
+        },
+        {
+          role: "user",
+          content: `История:${JSON.stringify(history)} Симптом:${symptom}`,
+        },
+      ],
+    }),
+  });
+
+  clearTimeout(timeout);
 
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || "";
 
   const parsed = safeJSON(text) || {
-    type: "diagnosis",
-    message: "",
-    diagnosis: "unknown",
+    type: "question",
+    message: "Уточните симптомы",
+    questions: ["Что происходит?", "Когда начинается проблема?"],
+    diagnosis: "",
     probability: "0%",
     explanation: "",
     lesson: "",
@@ -77,7 +89,7 @@ export async function POST(req: Request) {
 
   addMemory({
     symptom,
-    diagnosis: parsed.diagnosis,
+    diagnosis: parsed.diagnosis || "pending",
     time: Date.now(),
   });
 
