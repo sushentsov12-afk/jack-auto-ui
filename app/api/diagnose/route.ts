@@ -237,3 +237,82 @@ ${symptom}
     memory_size: history.length + 1,
   });
 }
+import { NextResponse } from "next/server";
+import { getMemory, addMemory } from "@/lib/memory";
+
+export async function POST(req: Request) {
+  const { symptom } = await req.json();
+
+  const history = getMemory();
+
+  const prompt = `
+Ты авто-диагност. Веди диалог как механик.
+
+Правила:
+- если данных мало → задай 1-2 уточняющих вопроса
+- если данных достаточно → дай диагноз
+
+Верни строго JSON:
+
+{
+"type": "question" | "diagnosis",
+"message": "",
+"diagnosis": "",
+"probability": "",
+"explanation": "",
+"lesson": "",
+"what_to_do": "",
+"service_recommendation": ""
+}
+
+История:
+${JSON.stringify(history)}
+
+Симптом:
+${symptom}
+`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+    }),
+  });
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || "{}";
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = {
+      type: "diagnosis",
+      message: "Ошибка анализа",
+      diagnosis: "unknown",
+      probability: "0%",
+      explanation: "",
+      lesson: "",
+      what_to_do: "",
+      service_recommendation: "",
+    };
+  }
+
+  addMemory({
+    symptom,
+    diagnosis: parsed.diagnosis || "pending",
+    time: Date.now(),
+  });
+
+  return NextResponse.json({
+    symptom,
+    ...parsed,
+    memory_size: history.length + 1,
+  });
+}
