@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const history = getMemory();
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -33,38 +33,60 @@ export async function POST(req: Request) {
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      temperature: 0.3,
+      temperature: 0.2,
       messages: [
         {
           role: "system",
           content: `
-Ты авто-механик.
+Ты — профессиональный авто-диагност уровня СТО + инженер.
 
-Работаешь как ДЕРЕВО ДИАГНОСТИКИ:
+Работаешь как ДЕРЕВО РЕШЕНИЙ:
 
-ШАГ 1:
-если данных недостаточно → задай 1–3 уточняющих вопроса
+1) Если данных недостаточно:
+- задаёшь 1–3 точных уточняющих вопроса
+- НЕ даёшь диагноз
 
-ШАГ 2:
-если данных достаточно → выдай диагноз
+2) Если данных достаточно:
+- даёшь финальный диагноз
+- разбиваешь причину на ветки (engine / electrical / fuel / cooling / transmission)
+- указываешь вероятности
 
 ФОРМАТ СТРОГО JSON:
+
 {
 "type": "question" | "diagnosis",
+
 "message": "",
 "questions": [],
+
+"branches": [
+  {
+    "system": "engine|electrical|fuel|cooling|transmission",
+    "probability": "",
+    "reason": ""
+  }
+],
+
 "diagnosis": "",
 "probability": "",
 "explanation": "",
 "lesson": "",
 "what_to_do": "",
+"can_drive": "yes|no|risky",
+"urgency": "low|medium|high|critical",
 "service_recommendation": ""
 }
 `.trim(),
         },
         {
           role: "user",
-          content: `История:${JSON.stringify(history)} Симптом:${symptom}`,
+          content: `
+ИСТОРИЯ:
+${JSON.stringify(history)}
+
+СИМПТОМ:
+${symptom}
+`.trim(),
         },
       ],
     }),
@@ -77,13 +99,16 @@ export async function POST(req: Request) {
 
   const parsed = safeJSON(text) || {
     type: "question",
-    message: "Уточните симптомы",
-    questions: ["Что происходит?", "Когда начинается проблема?"],
+    message: "Недостаточно данных",
+    questions: ["Опишите звук", "Когда проявляется проблема"],
+    branches: [],
     diagnosis: "",
     probability: "0%",
     explanation: "",
     lesson: "",
     what_to_do: "",
+    can_drive: "risky",
+    urgency: "medium",
     service_recommendation: "",
   };
 
